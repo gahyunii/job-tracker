@@ -46,9 +46,14 @@
   .add-btn:hover { background: #333; }
   .del-btn { font-size: 11px; padding: 2px 7px; border-radius: 20px; border: 0.5px solid #eee; background: white; color: #ccc; cursor: pointer; }
   .del-btn:hover { color: #dc2626; border-color: #fecaca; }
+  .move-btns { display: flex; flex-direction: column; gap: 2px; }
+  .mv { font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 0.5px solid #eee; background: white; color: #bbb; cursor: pointer; line-height: 1.6; }
+  .mv:hover { background: #f5f5f5; color: #555; }
+  .mv:disabled { opacity: 0.3; cursor: default; }
   select.inline { font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 0.5px solid #ddd; background: white; color: #333; cursor: pointer; }
   .int-tag { display: inline-flex; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 12px; }
   .it-none { background: #f5f5f5; color: #aaa; }
+  .it-wait { background: #fffbeb; color: #d97706; }
   .it-pass { background: #f0fdf4; color: #16a34a; }
   .it-fail { background: #fef2f2; color: #dc2626; }
   @media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
@@ -63,7 +68,6 @@
     <button class="tab" onclick="switchTab('interview')">면접 트래커</button>
   </div>
 
-  <!-- 서류 트래커 -->
   <div class="panel active" id="panel-docs">
     <div class="stats">
       <div class="stat-card"><div class="stat-num s-total" id="d-total">0</div><div class="stat-label">총 지원</div></div>
@@ -83,13 +87,12 @@
     </div>
     <div class="card">
       <table>
-        <thead><tr><th>회사 / 직무</th><th>지원 상태</th><th>서류 결과</th><th>면접 결과</th><th></th></tr></thead>
+        <thead><tr><th></th><th>회사 / 직무</th><th>지원 상태</th><th>서류 결과</th><th>면접 결과</th><th></th></tr></thead>
         <tbody id="docs-body"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- 면접 트래커 -->
   <div class="panel" id="panel-interview">
     <div class="stats">
       <div class="stat-card"><div class="stat-num s-total" id="i-total">0</div><div class="stat-label">면접 대상</div></div>
@@ -108,8 +111,8 @@
 </div>
 
 <script>
-const JOBS_KEY = 'gahyeon_jobs_v2';
-const INT_KEY = 'gahyeon_interviews_v2';
+const JOBS_KEY = 'gahyeon_jobs_v3';
+const INT_KEY = 'gahyeon_interviews_v3';
 const defaultJobs = [
   { id: 1, company: '토스페이먼츠', role: 'MOS (PG 계약/심사)', status: 'submitted', result: 'fail' },
   { id: 2, company: '헥토파이낸셜', role: '정책 담당자 (육아휴직 대체)', status: 'submitted', result: null },
@@ -149,6 +152,13 @@ function deleteJob(id) {
   save(); render();
 }
 
+function moveJob(idx, dir) {
+  const target = idx + dir;
+  if (target < 0 || target >= jobs.length) return;
+  [jobs[idx], jobs[target]] = [jobs[target], jobs[idx]];
+  save(); render();
+}
+
 function setDocResult(id, val) {
   const job = jobs.find(j => j.id === id);
   if (!job) return;
@@ -180,20 +190,28 @@ function renderDocs() {
   const tbody = document.getElementById('docs-body');
   tbody.innerHTML = '';
   let total = 0, wait = 0, pass = 0, fail = 0;
-  jobs.forEach(job => {
+  jobs.forEach((job, idx) => {
     if (job.status === 'submitted') total++;
     if (job.status === 'submitted' && !job.result) wait++;
     if (job.result === 'pass') pass++;
     if (job.result === 'fail') fail++;
     const st = statusMap[job.status] || statusMap.submitted;
     const int = interviews[job.id];
-    const intTag = int
-      ? int.finalResult === 'pass' ? `<span class="int-tag it-pass">면접 합격</span>`
-      : int.finalResult === 'fail' ? `<span class="int-tag it-fail">면접 불합격</span>`
-      : `<span class="int-tag it-none">${int.round} 진행중</span>`
-      : `<span class="int-tag it-none">—</span>`;
+    let intTag = `<span class="int-tag it-none">—</span>`;
+    if (int) {
+      if (int.finalResult === 'pass') intTag = `<span class="int-tag it-pass">면접 합격 🎉</span>`;
+      else if (int.finalResult === 'fail') intTag = `<span class="int-tag it-fail">면접 불합격</span>`;
+      else if (int.finalResult === 'cancel') intTag = `<span class="int-tag it-none">미응시</span>`;
+      else intTag = `<span class="int-tag it-wait">${int.round} 진행중</span>`;
+    }
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td style="width:36px">
+        <div class="move-btns">
+          <button class="mv" onclick="moveJob(${idx},-1)" ${idx===0?'disabled':''}>▲</button>
+          <button class="mv" onclick="moveJob(${idx},1)" ${idx===jobs.length-1?'disabled':''}>▼</button>
+        </div>
+      </td>
       <td><div class="co">${job.company}</div><div class="ro">${job.role}</div></td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
       <td><div class="btns">
@@ -237,6 +255,7 @@ function renderInterview() {
         <td><div class="btns">
           <button class="rb ${int.finalResult==='pass'?'rp':''}" onclick="setIntResult(${job.id},'pass')">합격</button>
           <button class="rb ${int.finalResult==='fail'?'rf':''}" onclick="setIntResult(${job.id},'fail')">불합격</button>
+          <button class="rb ${int.finalResult==='cancel'?'rf':''}" onclick="setIntResult(${job.id},'cancel')">미응시</button>
           <button class="rb rr" onclick="setIntResult(${job.id},null)">초기화</button>
         </div></td>`;
       tbody.appendChild(tr);
