@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가현 지원 현황 트래커</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: #f7f6f3; color: #1a1a1a; min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .page-title { font-size: 22px; font-weight: 600; margin-bottom: 0.25rem; }
+  .page-sub { font-size: 13px; color: #888; margin-bottom: 2rem; }
+  .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 1.5px solid #e0ddd6; }
+  .tab { padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; color: #999; border-bottom: 2px solid transparent; margin-bottom: -1.5px; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
+  .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .tab:hover:not(.active) { color: #555; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: white; border-radius: 10px; padding: 14px 16px; border: 0.5px solid #e8e5de; }
+  .stat-num { font-size: 24px; font-weight: 600; }
+  .stat-label { font-size: 11px; color: #999; margin-top: 2px; }
+  .stat-num.s-total { color: #1a1a1a; }
+  .stat-num.s-wait { color: #d97706; }
+  .stat-num.s-pass { color: #16a34a; }
+  .stat-num.s-fail { color: #dc2626; }
+  .card { background: white; border-radius: 12px; border: 0.5px solid #e8e5de; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; font-weight: 500; color: #aaa; text-align: left; padding: 10px 16px; background: #faf9f7; border-bottom: 0.5px solid #e8e5de; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 12px 16px; border-bottom: 0.5px solid #f0ede6; font-size: 13px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #faf9f7; }
+  .co { font-weight: 600; font-size: 13px; }
+  .ro { font-size: 12px; color: #888; margin-top: 2px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+  .b-done { background: #eff6ff; color: #2563eb; }
+  .b-hold { background: #f5f5f5; color: #888; border: 0.5px solid #e0e0e0; }
+  .b-soon { background: #fffbeb; color: #d97706; }
+  .result-btns { display: flex; gap: 5px; }
+  .rb { font-size: 11px; padding: 3px 9px; border-radius: 20px; border: 0.5px solid #ddd; cursor: pointer; background: white; color: #666; transition: all 0.12s; }
+  .rb:hover { background: #f5f5f5; }
+  .rb.rp { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; font-weight: 500; }
+  .rb.rf { background: #fef2f2; color: #dc2626; border-color: #fecaca; font-weight: 500; }
+  .rb.rr { color: #bbb; border-color: #eee; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .empty { text-align: center; padding: 3rem; color: #bbb; font-size: 13px; }
+  .empty-icon { font-size: 28px; margin-bottom: 8px; }
+  select { font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 0.5px solid #ddd; background: white; color: #333; cursor: pointer; }
+  @media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-title">📋 지원 현황</div>
+  <div class="page-sub" id="updated">업데이트 내역 없음</div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('docs')">서류 트래커</button>
+    <button class="tab" onclick="switchTab('interview')">면접 트래커</button>
+  </div>
+  <div class="panel active" id="panel-docs">
+    <div class="stats">
+      <div class="stat-card"><div class="stat-num s-total" id="d-total">0</div><div class="stat-label">총 지원</div></div>
+      <div class="stat-card"><div class="stat-num s-wait" id="d-wait">0</div><div class="stat-label">결과 대기</div></div>
+      <div class="stat-card"><div class="stat-num s-pass" id="d-pass">0</div><div class="stat-label">서류 합격</div></div>
+      <div class="stat-card"><div class="stat-num s-fail" id="d-fail">0</div><div class="stat-label">서류 불합격</div></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>회사 / 직무</th><th>지원 상태</th><th>서류 결과</th></tr></thead>
+        <tbody id="docs-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel" id="panel-interview">
+    <div class="stats">
+      <div class="stat-card"><div class="stat-num s-total" id="i-total">0</div><div class="stat-label">면접 대상</div></div>
+      <div class="stat-card"><div class="stat-num s-wait" id="i-wait">0</div><div class="stat-label">진행 중</div></div>
+      <div class="stat-card"><div class="stat-num s-pass" id="i-pass">0</div><div class="stat-label">최종 합격</div></div>
+      <div class="stat-card"><div class="stat-num s-fail" id="i-fail">0</div><div class="stat-label">최종 불합격</div></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>회사 / 직무</th><th>면접 회차</th><th>최종 결과</th></tr></thead>
+        <tbody id="int-body"></tbody>
+      </table>
+      <div class="empty" id="int-empty"><div class="empty-icon">🎯</div>서류 합격 시 자동으로 추가돼요</div>
+    </div>
+  </div>
+</div>
+<script>
+const JOBS_KEY = 'gahyeon_jobs_v1';
+const INT_KEY = 'gahyeon_interviews_v1';
+const defaultJobs = [
+  { id: 1, company: '토스페이먼츠', role: 'MOS (PG 계약/심사)', status: 'submitted', result: 'fail' },
+  { id: 2, company: '헥토파이낸셜', role: '정책 담당자 (육아휴직 대체)', status: 'submitted', result: null },
+  { id: 3, company: 'KG이니시스', role: '가맹점 PG운영', status: 'hold', result: null },
+  { id: 4, company: '토스페이먼츠', role: 'Business Operations Specialist', status: 'submitted', result: null },
+  { id: 5, company: '무신사페이먼츠', role: 'AML팀', status: 'submitted', result: null },
+  { id: 6, company: '카카오엔터테인먼트', role: '베리즈 운영 어시스턴트', status: 'submitted', result: null },
+  { id: 7, company: '에이블리', role: '사업 운영 매니저 인턴', status: 'submitted', result: null },
+  { id: 8, company: '당근', role: 'Operations Manager 인턴', status: 'submitted', result: null },
+  { id: 9, company: '빗썸', role: 'KYC 사후점검 담당자 인턴', status: 'soon', result: null },
+];
+let jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || 'null') || defaultJobs;
+let interviews = JSON.parse(localStorage.getItem(INT_KEY) || '{}');
+function save() {
+  localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
+  localStorage.setItem(INT_KEY, JSON.stringify(interviews));
+  document.getElementById('updated').textContent = '마지막 업데이트: ' + new Date().toLocaleString('ko-KR');
+}
+function setDocResult(id, val) {
+  const job = jobs.find(j => j.id === id);
+  if (!job) return;
+  job.result = val;
+  if (val === 'pass' && !interviews[id]) interviews[id] = { round: '1차', finalResult: null };
+  else if (val !== 'pass') delete interviews[id];
+  save(); render();
+}
+function setIntRound(id, val) {
+  if (!interviews[id]) interviews[id] = { round: val, finalResult: null };
+  else interviews[id].round = val;
+  save(); renderInterview();
+}
+function setIntResult(id, val) {
+  if (!interviews[id]) interviews[id] = { round: '1차', finalResult: val };
+  else interviews[id].finalResult = val;
+  save(); renderInterview();
+}
+const statusMap = {
+  submitted: { label: '지원 완료', cls: 'b-done' },
+  hold: { label: '보류', cls: 'b-hold' },
+  soon: { label: '지원 예정', cls: 'b-soon' },
+};
+function renderDocs() {
+  const tbody = document.getElementById('docs-body');
+  tbody.innerHTML = '';
+  let total = 0, wait = 0, pass = 0, fail = 0;
+  jobs.forEach(job => {
+    if (job.status === 'submitted') total++;
+    if (job.status === 'submitted' && !job.result) wait++;
+    if (job.result === 'pass') pass++;
+    if (job.result === 'fail') fail++;
+    const st = statusMap[job.status] || statusMap.submitted;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><div class="co">${job.company}</div><div class="ro">${job.role}</div></td>
+      <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td><div class="result-btns">
+        <button class="rb ${job.result==='pass'?'rp':''}" onclick="setDocResult(${job.id},'pass')">합격</button>
+        <button class="rb ${job.result==='fail'?'rf':''}" onclick="setDocResult(${job.id},'fail')">불합격</button>
+        <button class="rb rr" onclick="setDocResult(${job.id},null)">초기화</button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('d-total').textContent = total;
+  document.getElementById('d-wait').textContent = wait;
+  document.getElementById('d-pass').textContent = pass;
+  document.getElementById('d-fail').textContent = fail;
+}
+function renderInterview() {
+  const tbody = document.getElementById('int-body');
+  const empty = document.getElementById('int-empty');
+  tbody.innerHTML = '';
+  const passed = jobs.filter(j => j.result === 'pass');
+  let total = passed.length, wait = 0, pass = 0, fail = 0;
+  if (passed.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    passed.forEach(job => {
+      const int = interviews[job.id] || { round: '1차', finalResult: null };
+      if (!int.finalResult) wait++;
+      if (int.finalResult === 'pass') pass++;
+      if (int.finalResult === 'fail') fail++;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><div class="co">${job.company}</div><div class="ro">${job.role}</div></td>
+        <td><select onchange="setIntRound(${job.id},this.value)">
+          <option ${int.round==='1차'?'selected':''}>1차</option>
+          <option ${int.round==='2차'?'selected':''}>2차</option>
+          <option ${int.round==='최종'?'selected':''}>최종</option>
+        </select></td>
+        <td><div class="result-btns">
+          <button class="rb ${int.finalResult==='pass'?'rp':''}" onclick="setIntResult(${job.id},'pass')">합격</button>
+          <button class="rb ${int.finalResult==='fail'?'rf':''}" onclick="setIntResult(${job.id},'fail')">불합격</button>
+          <button class="rb rr" onclick="setIntResult(${job.id},null)">초기화</button>
+        </div></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById('i-total').textContent = total;
+  document.getElementById('i-wait').textContent = wait;
+  document.getElementById('i-pass').textContent = pass;
+  document.getElementById('i-fail').textContent = fail;
+}
+function render() { renderDocs(); renderInterview(); }
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='docs')||(i===1&&tab==='interview')));
+  document.getElementById('panel-docs').classList.toggle('active',tab==='docs');
+  document.getElementById('panel-interview').classList.toggle('active',tab==='interview');
+}
+render();
+</script>
+</body>
+</html>
