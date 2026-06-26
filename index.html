@@ -159,6 +159,13 @@ function moveJob(idx, dir) {
   save(); render();
 }
 
+function setStatus(id, val) {
+  const job = jobs.find(j => j.id === id);
+  if (!job) return;
+  job.status = val;
+  save(); render();
+}
+
 function setDocResult(id, val) {
   const job = jobs.find(j => j.id === id);
   if (!job) return;
@@ -213,7 +220,11 @@ function renderDocs() {
         </div>
       </td>
       <td><div class="co">${job.company}</div><div class="ro">${job.role}</div></td>
-      <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td><select class="inline" onchange="setStatus(${job.id},this.value)">
+        <option value="submitted" ${job.status==='submitted'?'selected':''}>지원 완료</option>
+        <option value="hold" ${job.status==='hold'?'selected':''}>보류</option>
+        <option value="soon" ${job.status==='soon'?'selected':''}>지원 예정</option>
+      </select></td>
       <td><div class="btns">
         <button class="rb ${job.result==='pass'?'rp':''}" onclick="setDocResult(${job.id},'pass')">합격</button>
         <button class="rb ${job.result==='fail'?'rf':''}" onclick="setDocResult(${job.id},'fail')">불합격</button>
